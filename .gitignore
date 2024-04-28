@@ -1,0 +1,7 @@
+.venv
+.env
+__pycache__
+*.pyc
+main.py
+internal_frequent_commands.sql
+internal_to_do.md
