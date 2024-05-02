@@ -36,7 +36,7 @@ class logStats():
                         cursorclass=pymysql.cursors.DictCursor,
                     )
             cursor = dbconnection.cursor()
-            cursor.execute(f"INSERT INTO {os.environ.get(self.db['dbNameGpes'])}.{os.environ.get(self.db['dbTableLogging'])} (logStats, finishTime) VALUES (%s, %s)", [self.stt, self.logStats['finish_time']])
+            cursor.execute(f"INSERT INTO {os.environ.get(self.db['dbNameDestination'])}.{os.environ.get(self.db['dbTableLogging'])} (logStats, finishTime) VALUES (%s, %s)", [self.stt, self.logStats['finish_time']])
             # dbconnection.commit() 
         except pymysql.Error as e:
             print(e)         
@@ -46,12 +46,12 @@ class logStats():
 
 
 
-class newsArtileParser(logStats):
+class newsArticleParser(logStats):
     """Getting articles out of database, the using spacy to parse geopolitical entities and then dumping the results back into database."""
 
     def __init__(self, dbCredentials: dict, dbNames: dict, papers: dict, envPath=".env"):
         logStats.__init__(self)
-        self.setLog('job', newsArtileParser.__name__)
+        self.setLog('job', newsArticleParser.__name__)
         self.setLog('start_time', datetime.datetime.now())
         self.db = dbCredentials | dbNames
         self.papers = papers
@@ -122,22 +122,42 @@ class newsArtileParser(logStats):
                         cursorclass=pymysql.cursors.DictCursor,
                     )
             cursor = dbconnection.cursor()
-            for article in self.parsed_data:
-                cursor.execute(f'''
-                    INSERT INTO {os.environ.get(self.db["dbNameGpes"])}.{os.environ.get(self.db['dbTableGpes'])}
-                    (link,
-                    paper,
-                    author, 
-                    gpes,
-                    scrapeDate,
-                    parseDate) 
-                    VALUES 
-                    (%s, %s, %s, %s, %s, NOW())''', 
-                [article['link'], article['paper'], article['author'], article['gpe'], article['scrapeDate']])
+            for result in self.results:
+                cursor.execute(f'''INSERT INTO {os.environ.get(self.db["dbNameDestination"])}.{os.environ.get(self.papers[result["paper"]]["destinationTable"])} 
+                                (link, story, author, headline, subtext, scrapeDate, parseDate)
+                                VALUES (%s, %s, %s, %s, %s, %s, NOW()) ''',
+                                [result.get('link', 'NULL'), 
+                                 result.get('storyParsed', 'NULL'), 
+                                 result.get('authorParsed', 'NULL'), 
+                                 result.get('headlineParsed', 'NULL'), 
+                                 result.get('subtextParsed', 'NULL'), 
+                                 result.get('scrapeDate', 'NULL')
+                                ]
+                               )
                 # dbconnection.commit()  
+
+                self.incLog('articles_parsed')
+                self.incLog(f'articles_parsed/{result["paper"]}')
+                for key in result.keys():
+                    if key in ['headlineParsed', 'subtextParsed', 'storyParsed', 'authorParsed']:
+                        self.incLog('items')
+                        self.incLog(f'items/{result["paper"]}')
+                        self.incLog(f'items/{key[:-6]}')
+                        self.incLog(f'items/{key[:-6]}/{result["paper"]}')
+                    else:
+                        ### FIX ERROR WITH helper var at parsing or changed loop going only though list above
+                        self.incLog('none')
+                        self.incLog(f'none/{result["paper"]}')
+                        self.incLog(f'none/{key[:-6]}')
+                        self.incLog(f'none/{key[:-6]}/{result["paper"]}')
+
         except Exception as e:
             self.setLog('error', e)
-            self.setLog('last_items_before_error', json.dumps(article, sort_keys=True, default=str))
+            self.setLog('last_items_before_error', json.dumps(result, sort_keys=True, default=str))
             self.transformingLogDump()
         finally:
             dbconnection.close()
+      
+
+
+
