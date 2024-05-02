@@ -105,7 +105,7 @@ class newsArticleParser(logStats):
                 result['storyParsed'] = story
 
             author = ''
-            for element in tree.xpath(xpath['story']):
+            for element in tree.xpath(xpath['author']):
                 if element.text is not None: author += element.text_content().strip() + ' '   
             if author != '': 
                 result['authorParsed'] = author
