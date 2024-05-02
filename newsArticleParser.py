@@ -70,7 +70,7 @@ class newsArticleParser(logStats):
             for key, value in self.papers.items():
                 cursor = dbconnection.cursor()
                 sqlQuery = f"""SELECT pageHtml, link, scrapeDate, '{key}' as paper FROM {os.environ.get(self.db['dbNameSource'])}.{os.environ.get(value['sourceTable'])} 
-                            WHERE link NOT IN (SELECT link FROM {os.environ.get(self.db['dbNameDestination'])}.{os.environ.get(value['destinationTable'])}) LIMIT 1000;"""
+                            WHERE link NOT IN (SELECT link FROM {os.environ.get(self.db['dbNameDestination'])}.{os.environ.get(value['destinationTable'])}) LIMIT 500;"""
                 cursor.execute(sqlQuery)
                 outputs = cursor.fetchall()
                 for output in outputs:
@@ -138,18 +138,19 @@ class newsArticleParser(logStats):
 
                 self.incLog('articles_parsed')
                 self.incLog(f'articles_parsed/{result["paper"]}')
-                for key in result.keys():
-                    if key in ['headlineParsed', 'subtextParsed', 'storyParsed', 'authorParsed']:
+                for key in ['headlineParsed', 'subtextParsed', 'storyParsed', 'authorParsed']:
+                    if key in result.keys():
                         self.incLog('items')
                         self.incLog(f'items/{result["paper"]}')
                         self.incLog(f'items/{key[:-6]}')
                         self.incLog(f'items/{key[:-6]}/{result["paper"]}')
                     else:
-                        ### FIX ERROR WITH helper var at parsing or changed loop going only though list above
                         self.incLog('none')
                         self.incLog(f'none/{result["paper"]}')
                         self.incLog(f'none/{key[:-6]}')
                         self.incLog(f'none/{key[:-6]}/{result["paper"]}')
+                self.incLog('db/dumped')
+                self.incLog(f'db/dumped/{result["paper"]}')
 
         except Exception as e:
             self.setLog('error', e)
