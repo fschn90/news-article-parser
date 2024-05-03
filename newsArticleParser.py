@@ -22,7 +22,7 @@ class logStats():
     def setLog(self, key, value):
         self.logStats[key] = value
     
-    def transformingLogDump(self):
+    def logging(self):
         self.setLog('finish_time', datetime.datetime.now())
         self.setLog('elapsed_time', self.logStats['finish_time'] - self.logStats['start_time'])
         self.logStats = {key:val for key, val in self.logStats.items() if val != 0}
@@ -57,7 +57,7 @@ class newsArticleParser(logStats):
         self.papers = papers
         load_dotenv(envPath)
  
-    def getHTMLs(self):
+    def gettingHTMLs(self):
         self.results = []
         try:
             dbconnection = pymysql.connect(
@@ -68,14 +68,21 @@ class newsArticleParser(logStats):
                         cursorclass=pymysql.cursors.DictCursor,
                     )
             cursor = dbconnection.cursor()
+
             for key, value in self.papers.items():
-                # cursor = dbconnection.cursor()
-                sqlQuery = f"""SELECT pageHtml, link, scrapeDate, '{key}' as paper FROM {os.environ.get(self.db['dbNameSource'])}.{os.environ.get(value['sourceTable'])} 
-                            WHERE link NOT IN (SELECT link FROM {os.environ.get(self.db['dbNameDestination'])}.{os.environ.get(value['destinationTable'])}) LIMIT 1;"""
+                cursor = dbconnection.cursor()
+                sqlQuery = f"""SELECT link, '{key}' as paper FROM {os.environ.get(self.db['dbNameSource'])}.{os.environ.get(value['sourceTable'])} 
+                            WHERE link NOT IN (SELECT link FROM {os.environ.get(self.db['dbNameDestination'])}.{os.environ.get(value['destinationTable'])}) LIMIT 500;"""
                 cursor.execute(sqlQuery)
                 outputs = cursor.fetchall()
+
                 for output in outputs:
+                    sqlQuery = f"""SELECT pageHtml, scrapeDate FROM {os.environ.get(self.db['dbNameSource'])}.{os.environ.get(value['sourceTable'])} WHERE link = '{output['link']}';"""
+                    cursor.execute(sqlQuery)
+                    enhance = cursor.fetchall()
+                    output = output | enhance[0]
                     self.results.append(output)
+
         except pymysql.Error as e:
             print(e)         
         finally:
@@ -91,38 +98,10 @@ class newsArticleParser(logStats):
                 for element in tree.xpath(val):
                     if element.text is not None: content += element.text_content().strip() + ' '
                 if content != '':
-                    result[f'{key}Parsed']
+                    result[f'{key}Parsed'] = content
 
             del result['pageHtml']
 
-            
-            # xpath = self.papers[result['paper']]['xpath'] 
-
-            # headline = ''
-            # for element in tree.xpath(xpath['headline']):
-            #     if element.text is not None: headline += element.text_content().strip() + ' '     
-            # if headline != '': 
-            #     result['headlineParsed'] = headline
-            #
-            # subtext = ''
-            # for element in tree.xpath(xpath['subtext']):
-            #     if element.text is not None: subtext += element.text_content().strip() + ' '      
-            # if subtext != '': 
-            #     result['subtextParsed'] = subtext
-            #
-            # story = ''
-            # for element in tree.xpath(xpath['story']):
-            #     if element.text is not None: story += element.text_content().strip() + ' '   
-            # if story != '': 
-            #     result['storyParsed'] = story
-            #
-            # author = ''
-            # for element in tree.xpath(xpath['author']):
-            #     if element.text is not None: author += element.text_content().strip() + ' '   
-            # if author != '': 
-            #     result['authorParsed'] = author
-            #
-            # del result['pageHtml']
 
     def dumping(self):
         try:
@@ -135,6 +114,7 @@ class newsArticleParser(logStats):
                     )
             cursor = dbconnection.cursor()
             for result in self.results:
+                # TODO account for articles with zero parsings and dont push into db
                 cursor.execute(f'''INSERT INTO {os.environ.get(self.db["dbNameDestination"])}.{os.environ.get(self.papers[result["paper"]]["destinationTable"])} 
                                 (link, story, author, headline, subtext, scrapeDate, parseDate)
                                 VALUES (%s, %s, %s, %s, %s, %s, NOW()) ''',
