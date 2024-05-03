@@ -67,10 +67,11 @@ class newsArticleParser(logStats):
                         charset=os.environ.get(self.db['charset']),
                         cursorclass=pymysql.cursors.DictCursor,
                     )
+            cursor = dbconnection.cursor()
             for key, value in self.papers.items():
-                cursor = dbconnection.cursor()
+                # cursor = dbconnection.cursor()
                 sqlQuery = f"""SELECT pageHtml, link, scrapeDate, '{key}' as paper FROM {os.environ.get(self.db['dbNameSource'])}.{os.environ.get(value['sourceTable'])} 
-                            WHERE link NOT IN (SELECT link FROM {os.environ.get(self.db['dbNameDestination'])}.{os.environ.get(value['destinationTable'])}) LIMIT 500;"""
+                            WHERE link NOT IN (SELECT link FROM {os.environ.get(self.db['dbNameDestination'])}.{os.environ.get(value['destinationTable'])}) LIMIT 1;"""
                 cursor.execute(sqlQuery)
                 outputs = cursor.fetchall()
                 for output in outputs:
@@ -83,34 +84,45 @@ class newsArticleParser(logStats):
     def parsing(self):
         for result in self.results:
             tree = html.fromstring(result['pageHtml'])
-            
-            xpath = self.papers[result['paper']]['xpath'] 
+ 
 
-            headline = ''
-            for element in tree.xpath(xpath['headline']):
-                if element.text is not None: headline += element.text_content().strip() + ' '     
-            if headline != '': 
-                result['headlineParsed'] = headline
-
-            subtext = ''
-            for element in tree.xpath(xpath['subtext']):
-                if element.text is not None: subtext += element.text_content().strip() + ' '      
-            if subtext != '': 
-                result['subtextParsed'] = subtext
-
-            story = ''
-            for element in tree.xpath(xpath['story']):
-                if element.text is not None: story += element.text_content().strip() + ' '   
-            if story != '': 
-                result['storyParsed'] = story
-
-            author = ''
-            for element in tree.xpath(xpath['author']):
-                if element.text is not None: author += element.text_content().strip() + ' '   
-            if author != '': 
-                result['authorParsed'] = author
+            for key, val in self.papers[result['paper']]['xpath'].items():
+                content = ''
+                for element in tree.xpath(val):
+                    if element.text is not None: content += element.text_content().strip() + ' '
+                if content != '':
+                    result[f'{key}Parsed']
 
             del result['pageHtml']
+
+            
+            # xpath = self.papers[result['paper']]['xpath'] 
+
+            # headline = ''
+            # for element in tree.xpath(xpath['headline']):
+            #     if element.text is not None: headline += element.text_content().strip() + ' '     
+            # if headline != '': 
+            #     result['headlineParsed'] = headline
+            #
+            # subtext = ''
+            # for element in tree.xpath(xpath['subtext']):
+            #     if element.text is not None: subtext += element.text_content().strip() + ' '      
+            # if subtext != '': 
+            #     result['subtextParsed'] = subtext
+            #
+            # story = ''
+            # for element in tree.xpath(xpath['story']):
+            #     if element.text is not None: story += element.text_content().strip() + ' '   
+            # if story != '': 
+            #     result['storyParsed'] = story
+            #
+            # author = ''
+            # for element in tree.xpath(xpath['author']):
+            #     if element.text is not None: author += element.text_content().strip() + ' '   
+            # if author != '': 
+            #     result['authorParsed'] = author
+            #
+            # del result['pageHtml']
 
     def dumping(self):
         try:
