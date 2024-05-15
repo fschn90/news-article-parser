@@ -115,22 +115,23 @@ class newsArticleParser(logStats):
                     )
             cursor = dbconnection.cursor()
             for result in self.results:
+                cursor.execute(f'''INSERT INTO {os.environ.get(self.db["dbNameDestination"])}.{os.environ.get(self.papers[result["paper"]]["destinationTable"])} 
+                                (link, story, author, headline, subtext, scrapeDate, parseDate)
+                                VALUES (%s, %s, %s, %s, %s, %s, NOW()) ''',
+                                [result.get('link', 'NULL'), 
+                                 result.get('storyParsed', 'NULL'), 
+                                 result.get('authorParsed', 'NULL'), 
+                                 result.get('headlineParsed', 'NULL'), 
+                                 result.get('subtextParsed', 'NULL'), 
+                                 result.get('scrapeDate', 'NULL')
+                            ]
+                           )
+                dbconnection.commit()  
+                self.incLog('db/dumped')
+                self.incLog(f'db/dumped/{result["paper"]}')
+                self.incLog('articles_parsed')
+                self.incLog(f'articles_parsed/{result["paper"]}')
                 if any(key in result for key in ['headlineParsed', 'subtextParsed', 'storyParsed', 'authorParsed']):
-                    cursor.execute(f'''INSERT INTO {os.environ.get(self.db["dbNameDestination"])}.{os.environ.get(self.papers[result["paper"]]["destinationTable"])} 
-                                    (link, story, author, headline, subtext, scrapeDate, parseDate)
-                                    VALUES (%s, %s, %s, %s, %s, %s, NOW()) ''',
-                                    [result.get('link', 'NULL'), 
-                                     result.get('storyParsed', 'NULL'), 
-                                     result.get('authorParsed', 'NULL'), 
-                                     result.get('headlineParsed', 'NULL'), 
-                                     result.get('subtextParsed', 'NULL'), 
-                                     result.get('scrapeDate', 'NULL')
-                                ]
-                               )
-                    dbconnection.commit()  
-
-                    self.incLog('articles_parsed')
-                    self.incLog(f'articles_parsed/{result["paper"]}')
                     for key in ['headlineParsed', 'subtextParsed', 'storyParsed', 'authorParsed']:
                         if key in result.keys():
                             self.incLog('items')
@@ -142,12 +143,14 @@ class newsArticleParser(logStats):
                             self.incLog(f'none/{result["paper"]}')
                             self.incLog(f'none/{key[:-6]}')
                             self.incLog(f'none/{key[:-6]}/{result["paper"]}')
-                    self.incLog('db/dumped')
-                    self.incLog(f'db/dumped/{result["paper"]}')
                 else:
                     self.incLog('articles_null_parsed')
                     self.incLog(f'articles_null_parsed/{result["paper"]}')
-
+                    for key in ['headlineParsed', 'subtextParsed', 'storyParsed', 'authorParsed']:
+                        self.incLog('none')
+                        self.incLog(f'none/{result["paper"]}')
+                        self.incLog(f'none/{key[:-6]}')
+                        self.incLog(f'none/{key[:-6]}/{result["paper"]}')
         except Exception as e:
             self.setLog('error', e)
             self.setLog('last_items_before_error', json.dumps(result, sort_keys=True, default=str))
