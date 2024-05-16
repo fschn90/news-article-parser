@@ -129,9 +129,9 @@ class newsArticleParser(logStats):
                 dbconnection.commit()  
                 self.incLog('db/dumped')
                 self.incLog(f'db/dumped/{result["paper"]}')
-                self.incLog('articles_parsed')
-                self.incLog(f'articles_parsed/{result["paper"]}')
                 if any(key in result for key in ['headlineParsed', 'subtextParsed', 'storyParsed', 'authorParsed']):
+                    self.incLog('articles_parsed')
+                    self.incLog(f'articles_parsed/{result["paper"]}')
                     for key in ['headlineParsed', 'subtextParsed', 'storyParsed', 'authorParsed']:
                         if key in result.keys():
                             self.incLog('items')
